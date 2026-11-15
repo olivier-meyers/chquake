@@ -7,3 +7,15 @@ run:
   seed: 42              # master RNG seed, for reproducibility
   n_years: 10000        # length of the simulated catalogue (years)
   output_dir: outputs
+
+# Input files, fetched by scripts/download_data.py (pinned tags + SHA-256; sources and DOIs there).
+data:
+  raw_dir: data/raw
+  exposure: Exposure_Model_Switzerland_Res.csv                       # ESRM20 exposure v1.0
+  vulnerability: vulnerability_total-repl-cost_ESRM20_VariousIM.xml  # ESRM20 v1.0
+  vulnerability_mapping: esrm20_exposure_vulnerability_mapping.csv   # ESRM20 v1.0
+
+vulnerability:
+  # true: draw each loss ratio from the published Beta distribution (mean + CoV per function,
+  # ESRM20, doi:10.7414/EUC-EFEHR-TR002-ESRM20). false: use the mean loss ratio only.
+  secondary_uncertainty: true
