@@ -1,0 +1,9 @@
+# chquake run configuration.
+# Every model parameter lives here. Parameters taken from external sources are cited in a comment
+# (source + DOI). Sections for exposure, hazard, vulnerability and financial terms are added per
+# milestone; nothing is filled in until it has a verified source.
+
+run:
+  seed: 42              # master RNG seed, for reproducibility
+  n_years: 10000        # length of the simulated catalogue (years)
+  output_dir: outputs
