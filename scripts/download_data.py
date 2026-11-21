@@ -13,6 +13,8 @@ Sources (all CC BY 4.0):
 - ESRM20 OpenQuake input files v1.0 (efehr/esrm20): Crowley et al. (2021), EFEHR Technical
   Report 002, doi:10.7414/EUC-EFEHR-TR002-ESRM20. Vulnerability data also published as
   doi:10.5281/zenodo.4062410.
+- ESHM20 main datasets (efehr/eshm20): Danciu et al. (2021),
+  doi:10.12686/eshm20-main-datasets (catalogue and completeness, for validation only).
 """
 
 import hashlib
@@ -26,7 +28,10 @@ API = (
 )
 RAW_DIR = Path(__file__).resolve().parents[1] / "data" / "raw"
 
-# (repo, tag, path in repo, sha256) -- sha256 values as reported by GitLab for these tags.
+# efehr/eshm20 has no release tags, so it is pinned to a commit (equally immutable).
+ESHM20_COMMIT = "fbd334de68f85d72669f73fc5a314a113db67317"
+
+# (repo, tag or commit, path in repo, sha256) -- sha256 values as reported by GitLab.
 FILES: list[tuple[str, str, str, str]] = [
     # Exposure: one row per building class per municipality, costs in EUR (2020).
     (
@@ -79,6 +84,60 @@ FILES: list[tuple[str, str, str, str]] = [
         "v1.0",
         "Vs30/Site_model_Switzerland.xml",
         "ebcbe810ca51778a45590b3182c98d0b4cfc35a08fe628af8b3b2fe3b85263ee",
+    ),
+    # ESHM20 unified earthquake catalogue, declustered (the mainshock catalogue the source
+    # rates were fitted to), and the completeness super-zones with their Mc(t) table.
+    # Danciu et al. (2021), Main Datasets of ESHM20, doi:10.12686/eshm20-main-datasets.
+    # Used only for the historical-rate check, not by the loss model.
+    *(
+        (
+            "efehr/eshm20",
+            ESHM20_COMMIT,
+            f"input_shapefiles/eshm20_input_a_unified_eq_catalogue/"
+            f"eshm20_unified_catalogue_declustered_v02a.{ext}",
+            sha,
+        )
+        for ext, sha in [
+            ("dbf", "45ee685d9d7906d4e2df4f5a7132ae7941db1597ee715a86c1d4e0c67676d831"),
+            ("shp", "6e560b3a3ac6ad0e41a904e0acfcc8b4743e27d513bf278a3b3c69e57e53e033"),
+            ("shx", "1d2ac7784e7be8b27c7e54b589cec257b56bad31f9275dba6ab73ee991d9b60e"),
+            ("prj", "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4"),
+            ("cpg", "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"),
+        ]
+    ),
+    *(
+        (
+            "efehr/eshm20",
+            ESHM20_COMMIT,
+            f"input_shapefiles/eshm20_input_b_completeness_superzones/{name}",
+            sha,
+        )
+        for name, sha in [
+            (
+                "McTable_CSZ_ESHM20_ver_dec2020.xlsx",
+                "bf06e93dec25d906e758dbee99fc3d1270b67bd7b77a9cec0789b359cbcab55d",
+            ),
+            (
+                "eshm20_csz_v06b.shp",
+                "f923bf17411d5e00c2a302aa60c3b9ef1795ab57334c3cab3113779ab81e61e2",
+            ),
+            (
+                "eshm20_csz_v06b.shx",
+                "c4329348cbe48d10a64103c9ca4944ecda852cb2b62a20b60cb893d8439dfe50",
+            ),
+            (
+                "eshm20_csz_v06b.dbf",
+                "e28d3cc8bd15f75c7f67ce86dac7cec282100d25af7c2c19070a909ca74cc195",
+            ),
+            (
+                "eshm20_csz_v06b.prj",
+                "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb",
+            ),
+            (
+                "eshm20_csz_v06b.cpg",
+                "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+            ),
+        ]
     ),
 ]
 
