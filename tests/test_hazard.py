@@ -13,6 +13,7 @@ from chquake.hazard import (
     load_gmpe_branches,
     sample_events,
     select_sources,
+    truncate_normal,
 )
 
 IMTS = ["PGA", "SA(0.3)", "SA(0.6)", "SA(1.0)"]
@@ -121,6 +122,40 @@ def test_spatial_and_cross_im_correlation(gmpe_logic_tree_path) -> None:
     r_imt = np.corrcoef(ln[0, :, 0], ln[3, :, 0])[0, 1]
     target = (cross @ cross.T)[0, 3]
     assert r_imt == pytest.approx(target, abs=0.06)
+
+
+def test_truncate_normal() -> None:
+    r = np.random.default_rng(5).standard_normal(400_000)
+    t = truncate_normal(r, 3.0)
+    assert np.abs(t).max() <= 3.0
+    assert (np.diff(t[np.argsort(r)]) >= 0).all()  # monotone: ranks (correlation) kept
+    # Std of a standard normal truncated at +-3: sqrt(1 - 2*3*phi(3)/(1 - 2*Phi(-3))) = 0.9866
+    assert t.std() == pytest.approx(0.9866, abs=0.003)
+    assert truncate_normal(r, None) is r
+
+
+def test_ground_motion_truncated_at_3_sigma(gmpe_logic_tree_path) -> None:
+    _, gsims, w = load_gmpe_branches(gmpe_logic_tree_path)
+    gsim = gsims[int(np.argmax(w))]
+    sites = _toy_sites([7.5, 7.6])
+    spatial, cross = correlation_factors(sites, IMTS)
+    ev = pd.DataFrame(
+        {
+            "mag": 6.0,
+            "lon": 7.55,
+            "lat": 46.9,
+            "depth": 10.0,
+            "src_key": 0,
+            "src_idx": np.arange(3000),
+        }
+    )
+    args = (ev, sites, gsim, IMTS, spatial, cross, 6, 200.0, True)
+    median = np.log(ground_motion(*args, truncation=1e-9)[0])  # residuals collapse to 0
+    tau, phi = _tau_phi(gsim, 6.0)
+    dev = np.log(ground_motion(*args, truncation=3.0)[0]) - median
+    assert np.abs(dev).max() <= 3 * np.hypot(tau, phi) + 1e-9
+    untrunc = np.log(ground_motion(*args)[0]) - median
+    assert np.abs(untrunc).max() > 3 * np.hypot(tau, phi)  # 6000 draws: some exceed 3 sigma
 
 
 def test_ground_motion_zero_beyond_max_distance(gmpe_logic_tree_path) -> None:

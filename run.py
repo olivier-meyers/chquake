@@ -94,6 +94,7 @@ def simulate(cfg: dict, raw: Path, seed: int) -> tuple[pd.DataFrame, pd.DataFram
                 seed,
                 hz["max_distance_km"],
                 hz["correlation"]["within_cross_im"],
+                hz["truncation_level"],
             )
             loss[sel] = event_losses(gmf, imt_of_asset, site_of_asset, func, value, vuln, secondary)
     print(f"Ground motion + losses: {time.perf_counter() - t0:.0f} s")

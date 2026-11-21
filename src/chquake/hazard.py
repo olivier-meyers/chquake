@@ -28,7 +28,13 @@ OpenQuake correlates only eta across IMTs). Construction: z ~ N(0, R_BJ08) per s
 eps_m = L_m z_m with L_m the JB09 Cholesky factor of IMT m. This is a valid covariance;
 the same-site cross-IMT correlation becomes rho_BJ08 * (L_k L_l^T)_ss, slightly below
 rho_BJ08 where the two spatial ranges differ (an approximation of Loth & Baker 2013).
-No truncation of the residuals.
+
+Truncation (optional, `truncation` = t): the total normalised residual
+r = (tau*eta + phi*eps) / sqrt(tau^2 + phi^2) is standard normal at every site. It is mapped
+through r -> Phi^-1(Phi(-t) + Phi(r) * (1 - 2 Phi(-t))), which makes each marginal exactly a
+normal truncated at +-t (the distribution a truncated PSHA hazard integral uses) while keeping
+the Gaussian-copula (rank) correlation between sites and IMTs. Clipping at +-t would instead
+pile the 0.27 % tail mass onto the bound.
 """
 
 import xml.etree.ElementTree as ET
@@ -44,6 +50,7 @@ from openquake.hazardlib import valid
 from openquake.hazardlib.contexts import simple_cmaker
 from openquake.hazardlib.correlation import jbcorrelation
 from openquake.hazardlib.cross_correlation import BakerJayaram2008
+from scipy.special import ndtr, ndtri
 
 NRML04 = "{http://openquake.org/xmlns/nrml/0.4}"
 NRML05 = "{http://openquake.org/xmlns/nrml/0.5}"
@@ -204,6 +211,14 @@ def correlation_factors(
     return spatial, np.linalg.cholesky(cross)
 
 
+def truncate_normal(r: np.ndarray, level: float | None) -> np.ndarray:
+    """Map standard-normal values to a normal truncated at +-level (monotone; None = no-op)."""
+    if level is None:
+        return r
+    lo = ndtr(-level)
+    return ndtri(lo + ndtr(r) * (1.0 - 2.0 * lo))
+
+
 def ground_motion(
     events: pd.DataFrame,
     sites: pd.DataFrame,
@@ -214,11 +229,13 @@ def ground_motion(
     seed: int,
     max_km: float = 200.0,
     within_cross_im: bool = True,
+    truncation: float | None = None,
 ) -> np.ndarray:
     """Sampled ground motion (n_imt, n_events, n_sites) in g; 0 beyond max_km.
 
     Each event's residuals come from its own stream keyed by (seed, src_key, src_idx), so
-    an event's raw draws are the same in every run that contains it.
+    an event's raw draws are the same in every run that contains it. `truncation` is the
+    level (in total sigma) at which the residual distribution is truncated; None = none.
     """
     n_ev, n_s, n_m = len(events), len(sites), len(imts)
     rjb = _haversine_km(
@@ -251,7 +268,8 @@ def ground_motion(
         z = z @ cross_chol.T
     eps = np.stack([z[:, :, m] @ spatial_chol[m].T for m in range(n_m)])  # (M, E, S)
 
+    sigma = np.sqrt(tau**2 + phi**2)
+    r = (tau * eta[e_idx].T + phi * eps[:, e_idx, s_idx]) / sigma  # standard normal
     gmf = np.zeros((n_m, n_ev, n_s))
-    ln_y = mean + tau * eta[e_idx].T + phi * eps[:, e_idx, s_idx]
-    gmf[:, e_idx, s_idx] = np.exp(ln_y)
+    gmf[:, e_idx, s_idx] = np.exp(mean + sigma * truncate_normal(r, truncation))
     return gmf

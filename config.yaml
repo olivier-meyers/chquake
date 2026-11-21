@@ -5,7 +5,7 @@
 
 run:
   seed: 42              # master RNG seed, for reproducibility
-  n_years: 10000        # length of the simulated catalogue (years)
+  n_years: 50000        # length of the simulated catalogue (years); ~5 min. 10k was too noisy.
   output_dir: outputs
 
 # Input files, fetched by scripts/download_data.py (pinned tags + SHA-256; sources and DOIs there).
@@ -29,7 +29,18 @@ hazard:
     # Baker & Jayaram (2008), doi:10.1193/1.2857544, applied to between-event residuals
     # always; true also applies it to within-event residuals (option C). false = OpenQuake.
     within_cross_im: true
-  chunk_events: 128                  # events per ground-motion batch (memory only)
+  # Total ground-motion residual truncated at this many sigma (exact truncated normal, see
+  # chquake/hazard.py); null = untruncated. A modelling choice, not a published parameter.
+  truncation_level: 3
+  chunk_events: 128                 # events per ground-motion batch (memory only)
+
+# Historical-rate check only (scripts/historical_rates.py); not used by the loss model.
+# ESHM20 main datasets, Danciu et al. (2021), doi:10.12686/eshm20-main-datasets.
+validation:
+  catalogue: eshm20_unified_catalogue_declustered_v02a.shp
+  completeness_zones: eshm20_csz_v06b.shp
+  completeness_table: McTable_CSZ_ESHM20_ver_dec2020.xlsx
+  zone: SZ02                 # CSZ_CH: covers 91 % of the exposure hull and all its M>=5 events
 
 vulnerability:
   # true: draw each loss ratio from the published Beta distribution (mean + CoV per function,

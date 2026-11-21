@@ -1,6 +1,6 @@
 """One-at-a-time sensitivity of AAL and return-period losses to the modelling choices.
 
-Usage: python scripts/sensitivity.py   (about 1 minute per case; writes outputs/sensitivity.csv)
+Usage: python scripts/sensitivity.py   (about 5 minutes per case; writes outputs/sensitivity.csv)
 Every case uses the same seed, so differences reflect the choice plus Monte Carlo noise.
 """
 
@@ -23,6 +23,7 @@ CASES = {
     "jb09_case2_clustered": {("hazard", "correlation", "vs30_clustering"): True},
     "no_secondary_uncertainty": {("vulnerability", "secondary_uncertainty"): False},
     "central_gmpe_branch": {("hazard", "gmpe_branch"): "central"},
+    "untruncated": {("hazard", "truncation_level"): None},
 }
 
 
