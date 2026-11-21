@@ -56,6 +56,30 @@ FILES: list[tuple[str, str, str, str]] = [
         "Vulnerability/esrm20_exposure_vulnerability_mapping.csv",
         "94b9ee800e9435a346ca200ecf34d0d46c8d8b895cc56e3be85c323006b4ee4c",
     ),
+    # ESHM20 area-source model as packaged for ESRM20 (branch "asm_collapsed", weight 0.5,
+    # of source_model_logic_tree_eshm20_v12e_collapsed_risk_model.xml). ESHM20: Danciu et
+    # al. (2021), doi:10.12686/a15.
+    (
+        "efehr/esrm20",
+        "v1.0",
+        "Hazard/source_models/asm_v12e/asm_ver12e_winGT_fs017_combined.xml",
+        "32dfcefff8acbedabf4fa6d87ce8694ff2dd7b662f5d75c5ea06a2156a6b2aef",
+    ),
+    # Ground-motion logic tree: Kotha et al. (2020) ESHM20 backbone, slope/geology site term,
+    # 5 stress x 3 attenuation branches. doi:10.1007/s10518-020-00869-1.
+    (
+        "efehr/esrm20",
+        "v1.0",
+        "Hazard/gmpe_logic_tree_5br_slope_geology.xml",
+        "f3efd16d56189c7804824d94b20ed75d6ceefc879144d8bd697c1f9b47cf17b4",
+    ),
+    # Site model: slope, geology, attenuation region and inferred Vs30 per site.
+    (
+        "efehr/esrm20",
+        "v1.0",
+        "Vs30/Site_model_Switzerland.xml",
+        "ebcbe810ca51778a45590b3182c98d0b4cfc35a08fe628af8b3b2fe3b85263ee",
+    ),
 ]
 
 
