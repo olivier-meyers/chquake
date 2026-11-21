@@ -14,6 +14,22 @@ data:
   exposure: Exposure_Model_Switzerland_Res.csv                       # ESRM20 exposure v1.0
   vulnerability: vulnerability_total-repl-cost_ESRM20_VariousIM.xml  # ESRM20 v1.0
   vulnerability_mapping: esrm20_exposure_vulnerability_mapping.csv   # ESRM20 v1.0
+  area_sources: asm_ver12e_winGT_fs017_combined.xml                  # ESHM20 asm, doi:10.12686/a15
+  gmpe_logic_tree: gmpe_logic_tree_5br_slope_geology.xml             # Kotha et al. 2020, doi:10.1007/s10518-020-00869-1
+  site_model: Site_model_Switzerland.xml                             # ESRM20 v1.0
+
+hazard:
+  tectonic_region: Shallow Default   # all ESHM20 area sources within reach of Switzerland
+  max_distance_km: 200               # sources and site-event pairs beyond this are ignored
+  imts: [PGA, SA(0.3), SA(0.6), SA(1.0)]   # the four IMTs used by the ESRM20 functions
+  gmpe_branch: sample_per_year       # one Kotha branch per simulated year, by published weight
+  correlation:
+    # Jayaram & Baker (2009), doi:10.1002/eqe.922. false = case 1 (Vs30 not clustered).
+    vs30_clustering: false
+    # Baker & Jayaram (2008), doi:10.1193/1.2857544, applied to between-event residuals
+    # always; true also applies it to within-event residuals (option C). false = OpenQuake.
+    within_cross_im: true
+  chunk_events: 128                  # events per ground-motion batch (memory only)
 
 vulnerability:
   # true: draw each loss ratio from the published Beta distribution (mean + CoV per function,
