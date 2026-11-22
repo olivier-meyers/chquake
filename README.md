@@ -77,6 +77,16 @@ stock. The five largest simulated events all come from the Basel area source.
 
 ![Convergence](docs/figures/m3_convergence.png)
 
+**Sensitivity.** One choice changed at a time, all random draws identical (common random
+numbers). The ground-motion model matters most: using only the central Kotha et al. (2020)
+branch instead of sampling all 15 lowers the AAL by 13 % and the 1,000-year loss by 22 %, because
+losses are convex in ground motion, so averaging over branches raises them. Removing the 3σ
+truncation raises the AAL by 7 % but leaves the 1,000-year loss unchanged. The correlation
+choices, the 300 km cut-off and secondary uncertainty each move the results by a few percent,
+which is within Monte Carlo noise for the 1,000-year loss.
+
+![Sensitivity](docs/figures/m3_sensitivity.png)
+
 ## Data
 
 All inputs are public. They are downloaded by `scripts/download_data.py` into `data/`, which is
