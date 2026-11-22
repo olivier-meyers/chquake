@@ -9,6 +9,8 @@ Pipeline per event e and asset i:
 All assets of a municipality share one site (ESRM20 lumps them at one reference point), so
 the ground-motion field is computed per site and looked up per asset.
 
+Gross (insured) losses use the same draws with a per-row deductible, see `chquake.financial`.
+
 ELT = one row per event (event id, year, loss). YLT = one row per simulated year, including
 years with no loss, with the annual aggregate (sum, for AEP) and the annual maximum event
 loss (for OEP).
@@ -39,29 +41,37 @@ def event_losses(
     model: VulnerabilityModel,
     rng: np.random.Generator | None = None,
     chunk: int = 64,
+    deductible: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Ground-up portfolio loss per event.
+    """Portfolio loss per event: sum_i value[i] * max(lr[i] - deductible[i], 0).
 
-    gmf: (n_imt, n_events, n_sites) intensities in g. imt_of_asset, site_of_asset, func and
-    value: (n_assets,). rng=None uses mean loss ratios; otherwise one Beta draw per asset row
-    per event, independent across rows and events (open choice, see README Limitations).
+    gmf: (n_imt, n_events, n_sites) intensities in g. imt_of_asset, site_of_asset, func:
+    (n_assets,). value (and deductible, a fraction of value; None = 0, i.e. ground-up):
+    (n_assets,) -> returns (n_events,); or (k, n_assets) -> returns (k, n_events), so
+    ground-up and gross losses come from the same loss-ratio draws. rng=None uses mean loss
+    ratios; otherwise one Beta draw per asset row per event, independent across rows and
+    events (open choice, see README Limitations).
 
     Events are processed in chunks to bound memory, and only asset-event pairs with shaking
     above the lowest vulnerability grid point (loss ratio exactly 0 below it) are evaluated,
     which skips most pairs for the many small, distant events.
     """
+    values = np.atleast_2d(value)
+    ded = np.zeros_like(values) if deductible is None else np.atleast_2d(deductible)
+    if ded.shape != values.shape:
+        raise ValueError("deductible must have the same shape as value")
     n_events = gmf.shape[1]
-    out = np.zeros(n_events)
+    out = np.zeros((len(values), n_events))
     for start in range(0, n_events, chunk):
         ev = np.arange(start, min(start + chunk, n_events))
         im = gmf[imt_of_asset[None, :], ev[:, None], site_of_asset[None, :]]  # (chunk, assets)
         e_idx, a_idx = np.nonzero(im >= model.iml[0])
         mean, cov = loss_ratio_moments(model, func[a_idx], im[e_idx, a_idx])
         lr = mean if rng is None else sample_loss_ratio(mean, cov, rng)
-        out[start : start + len(ev)] = np.bincount(
-            e_idx, weights=lr * value[a_idx], minlength=len(ev)
-        )
-    return out
+        for k in range(len(values)):
+            w = values[k, a_idx] * np.maximum(lr - ded[k, a_idx], 0.0)
+            out[k, start : start + len(ev)] = np.bincount(e_idx, weights=w, minlength=len(ev))
+    return out[0] if np.ndim(value) == 1 else out
 
 
 def build_elt(event_id: np.ndarray, year: np.ndarray, loss: np.ndarray) -> pd.DataFrame:

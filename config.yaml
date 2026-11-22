@@ -42,7 +42,35 @@ validation:
   completeness_table: McTable_CSZ_ESHM20_ver_dec2020.xlsx
   zone: SZ02                 # CSZ_CH: covers 91 % of the exposure hull and all its M>=5 events
 
+exposure:
+  # Multiplier on all ESRM20 replacement values. 1.0 = as published (baseline). Sensitivity
+  # only: 2.43 brings the residential structure + non-structural value (CHF 834 bn) to
+  # ERM-CH23's (CHF 2.9 tn x ~70 % residential; Papadopoulos et al. 2024, sec. 3.3,
+  # doi:10.5194/nhess-24-3561-2024).
+  value_scale: 1.0
+
 vulnerability:
   # true: draw each loss ratio from the published Beta distribution (mean + CoV per function,
   # ESRM20, doi:10.7414/EUC-EFEHR-TR002-ESRM20). false: use the mean loss ratio only.
   secondary_uncertainty: true
+
+financial:
+  # Per-building terms of the Swiss Pool for Earthquake Coverage (SPE): Statuten des
+  # Schweizerischen Pools für Erdbebendeckung, 14 Dec 1993 (BGS 618.115,
+  # https://www.lexfind.ch/tol/16207/de). Applied to all CH residential buildings (stylised).
+  covered: [value_structural, value_nonstructural]  # Art. 6(2): buildings only, no contents
+  deductible_fraction: 0.10        # Art. 15(1): 10 % of the sum insured at replacement value
+  deductible_min_chf: 50000        # Art. 15(1): at least CHF 50,000 per building
+  # CHF per EUR, SNB annual average 2020 (cube devkua, https://data.snb.ch/api/cube/devkua/data/csv/en),
+  # matching the EUR-2020 exposure values.
+  eur_chf: 1.07045
+  # Cat XL on the portfolio's gross event loss, EUR. Contract terms are illustrative (not a
+  # real treaty); null = no layer. 800m xs 300m was chosen from the baseline gross OEP
+  # (attaches near the 100-yr, exhausts near the 250-yr loss) and is then held fixed, like a
+  # real contract. 1 reinstatement at 100 % is a common market term; the SPE statutes likewise
+  # fund a second event per year (Art. 16(3)).
+  cat_xl:
+    limit: 800.0e+6     # (PyYAML needs the exponent sign to read a float)
+    attachment: 300.0e+6
+    reinstatements: 1
+    reinstatement_rate: 1.0

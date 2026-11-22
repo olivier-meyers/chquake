@@ -1,8 +1,10 @@
 """Single entry point: python run.py --config config.yaml
 
 Pipeline: exposure + vulnerability -> sites -> event set -> correlated ground motion ->
-ground-up event losses -> ELT / YLT -> EP metrics. Writes outputs/elt.csv,
-outputs/ylt.csv and outputs/ep_table.csv.
+ground-up and gross event losses -> ELT / YLT -> EP metrics -> cat XL (if configured).
+Writes to outputs/: elt.csv (ground-up `loss` and `gross_loss` per event), ylt.csv,
+ylt_gross.csv, ep_table_ground-up.csv, ep_table_gross.csv and, with a layer,
+ylt_cat_xl.csv and cat_xl_summary.csv.
 """
 
 import argparse
@@ -14,6 +16,7 @@ import pandas as pd
 import yaml
 
 from chquake.exposure import load_exposure
+from chquake.financial import cat_xl, deductible_ratio
 from chquake.hazard import (
     correlation_factors,
     ground_motion,
@@ -48,10 +51,23 @@ def simulate(cfg: dict, raw: Path, seed: int) -> tuple[pd.DataFrame, pd.DataFram
         exposure, load_site_model(raw / cfg["data"]["site_model"])
     )
     imt_of_asset = asset_imt_index(vuln, func, hz["imts"])
-    value = exposure["value"].to_numpy()
+    scale = cfg["exposure"]["value_scale"]
+    fin = cfg["financial"]
+    # Row 0: ground-up on the total replacement value. Row 1: gross, on the covered (building)
+    # value after the per-building deductible (see chquake.financial).
+    covered = scale * exposure[fin["covered"]].sum(axis=1).to_numpy()
+    ded = deductible_ratio(
+        covered,
+        exposure["buildings"].to_numpy(),
+        fin["deductible_fraction"],
+        fin["deductible_min_chf"] / fin["eur_chf"],
+    )
+    value = np.vstack([scale * exposure["value"].to_numpy(), covered])
+    deductible = np.vstack([np.zeros_like(ded), ded])
     print(
         f"Exposure: {len(exposure):,} assets at {len(sites):,} sites, "
-        f"EUR {value.sum() / 1e9:,.1f} bn"
+        f"EUR {value[0].sum() / 1e9:,.1f} bn (covered {covered.sum() / 1e9:,.1f} bn, "
+        f"mean deductible {np.average(ded, weights=covered):.1%} of covered value)"
     )
 
     sources = select_sources(
@@ -77,7 +93,7 @@ def simulate(cfg: dict, raw: Path, seed: int) -> tuple[pd.DataFrame, pd.DataFram
 
     spatial, cross = correlation_factors(sites, hz["imts"], hz["correlation"]["vs30_clustering"])
     secondary = secondary_rng if cfg["vulnerability"]["secondary_uncertainty"] else None
-    loss = np.zeros(len(events))
+    loss = np.zeros((2, len(events)))
     chunk = hz["chunk_events"]
     t0 = time.perf_counter()
     for b in np.unique(events["gmpe_branch"]):
@@ -96,11 +112,14 @@ def simulate(cfg: dict, raw: Path, seed: int) -> tuple[pd.DataFrame, pd.DataFram
                 hz["correlation"]["within_cross_im"],
                 hz["truncation_level"],
             )
-            loss[sel] = event_losses(gmf, imt_of_asset, site_of_asset, func, value, vuln, secondary)
+            loss[:, sel] = event_losses(
+                gmf, imt_of_asset, site_of_asset, func, value, vuln, secondary,
+                deductible=deductible,
+            )
     print(f"Ground motion + losses: {time.perf_counter() - t0:.0f} s")
     events["branch_id"] = np.array(branch_ids)[events["gmpe_branch"]]
-    events["loss"] = loss
-    return events, build_ylt(build_elt(events["event_id"], events["year"], loss), n_years)
+    events["loss"], events["gross_loss"] = loss
+    return events, build_ylt(build_elt(events["event_id"], events["year"], loss[0]), n_years)
 
 
 def main() -> None:
@@ -118,19 +137,40 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     events, ylt = simulate(cfg, raw, cfg["run"]["seed"])
+    n_years = cfg["run"]["n_years"]
+    gross = build_ylt(events, n_years, "gross_loss")
     events.to_csv(out / "elt.csv", index=False)
     ylt.to_csv(out / "ylt.csv")
-    table = ep_table(ylt)
-    table.to_csv(out / "ep_table.csv")
+    gross.to_csv(out / "ylt_gross.csv")
 
-    ci = bootstrap_ci(ylt["agg_loss"].to_numpy(), 200, np.random.default_rng(0))
-    print(
-        f"\nAAL: EUR {aal(ylt) / 1e6:,.1f} m "
-        f"(90% MC interval {ci['aal'][0] / 1e6:,.1f}-{ci['aal'][1] / 1e6:,.1f})"
-    )
-    print(f"ES 99%: EUR {expected_shortfall_99(ylt) / 1e9:,.2f} bn")
-    print("Return-period losses (EUR bn):")
-    print((table / 1e9).round(2).to_string())
+    for name, y in (("Ground-up", ylt), ("Gross", gross)):
+        table = ep_table(y)
+        table.to_csv(out / f"ep_table_{name.lower()}.csv")
+        ci = bootstrap_ci(y["agg_loss"].to_numpy(), 200, np.random.default_rng(0))
+        print(
+            f"\n{name} AAL: EUR {aal(y) / 1e6:,.1f} m "
+            f"(90% MC interval {ci['aal'][0] / 1e6:,.1f}-{ci['aal'][1] / 1e6:,.1f})"
+        )
+        print(f"{name} ES 99%: EUR {expected_shortfall_99(y) / 1e9:,.2f} bn")
+        print(f"{name} return-period losses (EUR bn):")
+        print((table / 1e9).round(2).to_string())
+
+    xl = cfg["financial"]["cat_xl"]
+    if xl:
+        xl_ylt, summary = cat_xl(
+            events["gross_loss"].to_numpy(), events["year"].to_numpy(), n_years,
+            xl["limit"], xl["attachment"], xl["reinstatements"], xl["reinstatement_rate"],
+        )
+        net = gross["agg_loss"] - xl_ylt["recovery"]
+        xl_ylt.assign(gross=gross["agg_loss"], net=net).to_csv(out / "ylt_cat_xl.csv")
+        pd.Series(summary).to_csv(out / "cat_xl_summary.csv", header=["value"])
+        print(
+            f"\nCat XL EUR {xl['limit'] / 1e6:,.0f} m xs {xl['attachment'] / 1e6:,.0f} m, "
+            f"{xl['reinstatements']} reinst. at {xl['reinstatement_rate']:.0%}:"
+        )
+        shares = {"rate_on_line", "p_attach", "p_exhaust"}
+        for k, v in summary.items():
+            print(f"  {k}: {v:.3%}" if k in shares else f"  {k}: EUR {v / 1e6:,.2f} m")
 
 
 if __name__ == "__main__":
