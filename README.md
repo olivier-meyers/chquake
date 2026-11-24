@@ -6,8 +6,9 @@ A small, reproducible earthquake catastrophe model for Swiss residential buildin
 
 **hazard → site → exposure → vulnerability → financial terms → EP metrics**
 
-The results are benchmarked against the published Swiss national earthquake risk model (ERM-CH23).
-The aim is a transparent "own view of risk", not a calibrated replica.
+The M5 benchmark compares the results with the published Swiss national earthquake risk model
+(ERM-CH23). The aim is a transparent "own view of risk". The model is not calibrated to match
+ERM-CH23.
 
 ## Status
 
@@ -18,7 +19,7 @@ The aim is a transparent "own view of risk", not a calibrated replica.
 | M2 | Stochastic event set + ground motion, checked against the historical catalogue | done |
 | M3 | Losses → ELT/YLT → AAL, OEP/AEP, convergence | done |
 | M4 | Financial module (Swiss earthquake pool deductible) + cat XL layer | done |
-| M5 | Benchmark against ERM-CH23 | planned |
+| M5 | Benchmark against ERM-CH23 | script done, results not yet written up |
 | M6 | Final README, figures, limitations | planned |
 
 ## Quick start
@@ -46,39 +47,39 @@ Figures are produced by `notebooks/01_results.ipynb` and saved to `docs/figures/
 
 | Metric | Loss (EUR bn) |
 |---|---|
-| AAL | 0.056 (90 % Monte Carlo interval 0.051–0.061) |
+| AAL | 0.056 (90 % Monte Carlo interval 0.051 to 0.061) |
 | 100-year OEP | 1.14 |
 | 250-year OEP / AEP | 2.94 / 3.01 |
 | 1,000-year OEP / AEP | 9.33 / 9.34 |
 | 99 % expected shortfall (AEP TVaR at 100 years) | 4.14 |
 
-For scale: the exposure is EUR 973.5 bn, so the AAL is about 0.06 ‰ of value. These numbers are
-not yet compared with ERM-CH23 (M5); they are not tuned to any target.
+For scale: the exposure is EUR 973.5 bn, so the AAL is about EUR 57 per EUR 1 m of value. The
+comparison with ERM-CH23 (M5) is in `scripts/benchmark.py` and is not written up here yet.
+Nothing has been tuned to fit it.
 
-**The event set reproduces the historical record.** The modelled annual rate of M ≥ 4.5–6.0
-earthquakes in Switzerland lies inside the 90 % Poisson interval of the declustered ESHM20
-catalogue at every threshold (model/observed: 0.89, 1.04, 1.36, 1.51). The model is above the
-catalogue at M ≥ 5.5 and 6.0, but with only 8 and 3 historical events those counts are weak
-evidence either way.
+The modelled annual rate of earthquakes in Switzerland lies inside the 90 % Poisson interval of
+the declustered ESHM20 catalogue at M ≥ 4.5, 5.0, 5.5 and 6.0 (model/observed: 0.89, 1.04, 1.36
+and 1.51). The model is above the catalogue at M ≥ 5.5 and 6.0, but with only 8 and 3 historical
+events those counts are weak evidence either way.
 
 ![Modelled vs historical rates](docs/figures/m2_rates_vs_catalogue.png)
 
-**The loss is concentrated around Basel.** High source rates next to a dense, valuable building
-stock. The five largest simulated events all come from the Basel area source.
+The loss is concentrated around Basel, which combines high source rates with a dense, valuable
+building stock. The five largest simulated events all come from the Basel area source.
 
 ![AAL by epicentre](docs/figures/m2_aal_by_epicentre.png)
 
-**OEP and AEP nearly coincide** because a damaging year almost always holds one dominant event.
+OEP and AEP nearly coincide because a damaging year almost always holds one dominant event.
 
 ![EP curves](docs/figures/m3_ep_curves.png)
 
-**Convergence.** The AAL settles within its final 90 % band after about 16,000 years; the
-250-year loss needs most of the 50,000. 10,000 years (the first trial) was too noisy for the tail.
+The AAL settles within its final 90 % band after about 16,000 years; the 250-year loss needs
+most of the 50,000. 10,000 years (the first trial) was too noisy for the tail.
 
 ![Convergence](docs/figures/m3_convergence.png)
 
-**Sensitivity.** One choice changed at a time, all random draws identical (common random
-numbers). The ground-motion model matters most: using only the central Kotha et al. (2020)
+In the sensitivity runs one choice changes at a time and all random draws stay identical
+(common random numbers). The ground-motion model matters most: using only the central Kotha et al. (2020)
 branch instead of sampling all 15 lowers the AAL by 13 % and the 1,000-year loss by 22 %, because
 losses are convex in ground motion, so averaging over branches raises them. Removing the 3σ
 truncation raises the AAL by 7 % but leaves the 1,000-year loss unchanged. The correlation
@@ -89,9 +90,10 @@ which is within Monte Carlo noise for the 1,000-year loss.
 
 ## Insured losses and reinsurance
 
-Ground-up → **gross** (after the per-building deductible of the Swiss earthquake pool statutes:
-10 % of value, at least CHF 50,000, buildings only) → **net** (after an illustrative cat XL
-layer of EUR 800 m xs 300 m with one reinstatement at 100 %). EUR, 50,000 simulated years.
+Ground-up losses become gross after the per-building deductible of the Swiss earthquake pool
+statutes (10 % of value, at least CHF 50,000, buildings only), and net after an illustrative cat
+XL layer of EUR 800 m xs 300 m with one reinstatement at 100 %. All figures are EUR, from 50,000
+simulated years.
 
 | | Ground-up | Gross | Net of cat XL |
 |---|---|---|---|
@@ -100,33 +102,32 @@ layer of EUR 800 m xs 300 m with one reinstatement at 100 %). EUR, 50,000 simula
 | 250-year AEP | 3.01 bn | 1.11 bn | 0.37 bn |
 | 1,000-year AEP | 9.34 bn | 4.54 bn | 3.74 bn |
 
-**The deductible removes the frequent losses, not the tail.** Gross covers only buildings
-(80 % of the value), so the deductible's own effect is gross ÷ (0.8 × ground-up): it removes
-54 % of the AAL and 65 % of the 100-year loss, but only 39 % of the 1,000-year loss. In a
-moderate event most buildings' loss ratios stay below their deductible (on average 14 % of
-value, because the CHF 50,000 minimum binds for most ESRM20 buildings); in a major event
-loss ratios of 40–90 % leave the fixed deductible a small share.
+The deductible mostly removes the frequent losses. Gross covers only buildings (80 % of the
+value), so the deductible's own effect is gross ÷ (0.8 × ground-up): it removes 54 % of the AAL
+and 65 % of the 100-year loss, but only 39 % of the 1,000-year loss. In a moderate event most
+buildings' loss ratios stay below their deductible, which averages 14 % of value because the
+CHF 50,000 minimum binds for most ESRM20 buildings. In a major event, loss ratios of 40 to 90 %
+make the fixed deductible a small share.
 
-**The layer is a ~1-in-100 cover.** It is reached in 1.04 % of years, and when reached pays
-EUR 488 m on average. Pure premium EUR 5.0 m (expected recovery 5.07 m less expected
-reinstatement premium), i.e. a rate on line of 0.63 %, with a standard deviation of recovery
-of EUR 59 m: about 12× the expected loss, which is what a market risk load is paid for (not
-modelled). Both limits are used in 1 year in 50,000. The layer cuts the 250-year net loss by
-two thirds but changes the 1,000-year loss only by its limit.
+The layer is roughly a 1-in-100 cover: it is reached in 1.04 % of years and pays EUR 488 m on
+average when reached. Its pure premium is EUR 5.0 m (expected recovery 5.07 m less expected
+reinstatement premium), a rate on line of 0.63 %. The standard deviation of recovery is
+EUR 59 m, about 12× the expected loss. A market risk load would be charged for that volatility
+but is not modelled. Both limits are used in 1 year in 50,000. The layer cuts the 250-year net
+loss by two thirds but changes the 1,000-year loss only by its limit.
 
 ![Gross and net](docs/figures/m4_gross_net.png)
 
-**Gross losses depend on the building values, not only on the loss ratios.** Scaling all
-values by 2.43 (to ERM-CH23's residential total) scales ground-up losses by exactly 2.43, but
-gross losses by 2.7–3.1 (gross AAL EUR 57 m instead of 20 m; 100-year gross OEP 1.00 bn
-instead of 0.32 bn). With higher values the fixed CHF 50,000 minimum binds less: the average
-deductible falls from 14 % to 10 % of value. A percentage-only deductible would not have
-this effect.
+Gross losses also depend on building values. Scaling all values by 2.43 (to ERM-CH23's
+residential total) scales ground-up losses by exactly 2.43, but gross losses by 2.7 to 3.1
+(gross AAL EUR 57 m instead of 20 m; 100-year gross OEP 1.00 bn instead of 0.32 bn). With
+higher values the fixed CHF 50,000 minimum binds less: the average deductible falls from 14 %
+to 10 % of value. A percentage-only deductible would not have this effect.
 
 ## Data
 
-All inputs are public. They are downloaded by `scripts/download_data.py` into `data/`, which is
-not committed. Every external dataset and parameter is cited (with DOI) in the code and listed here.
+All inputs are public. `scripts/download_data.py` downloads them into `data/`, which is not
+committed. Every external dataset and parameter is cited (with DOI) in the code and listed here.
 
 | Input | Source | Version | Licence | Citation |
 |---|---|---|---|---|
@@ -151,40 +152,39 @@ doi:[10.1002/eqe.922](https://doi.org/10.1002/eqe.922); correlation across inten
 Baker & Jayaram (2008), doi:[10.1193/1.2857544](https://doi.org/10.1193/1.2857544). Both via
 `openquake.hazardlib` 3.26.2.
 
-Files are pinned to release tags (or a commit, where no tag exists) and verified by SHA-256.
+The download script pins files to release tags (or a commit, where no tag exists) and checks
+their SHA-256 hashes.
 
 ### Modelling choices
 
-- **Value basis: total replacement cost** (structure 30 % + non-structural 50 % + contents 20 %),
+- Value basis: total replacement cost (structure 30 % + non-structural 50 % + contents 20 %),
   EUR 973.5 bn for 1.73 M residential buildings. This matches what ESRM20 applies its
   total-replacement-cost vulnerability functions to, so losses are like-for-like with ESRM20.
-- **Currency: EUR at 2020 prices**, as published. Conversion to CHF happens only at the
-  ERM-CH23 comparison (M5), with a cited exchange rate and year.
-- **Event set:** Poisson occurrences from the 66 ESHM20 area sources within 200 km, uniform
+- Currency: EUR at 2020 prices, as published. Conversion to CHF happens only for the pool
+  deductible and the ERM-CH23 comparison (M5), at the 2020 SNB average rate.
+- Event set: Poisson occurrences from the 66 ESHM20 area sources within 200 km, uniform
   epicentres within each source, 50,000 simulated years.
-- **Ground motion:** one Kotha et al. (2020) branch sampled per simulated year by its published
+- Ground motion: one Kotha et al. (2020) branch sampled per simulated year by its published
   weight; spatially correlated within-event residuals and correlated residuals across the four
   intensity measures the vulnerability functions use.
-- **Residuals truncated at 3σ**, with an exact truncated normal (not clipping, which would pile
-  the tail onto the bound). This is a modelling choice, not a physical fact; the untruncated
-  case is in the sensitivity run.
-- **Common random numbers:** every source, event and branch has its own random stream, so a
-  sensitivity case changes only the choice under test, not the random draws.
-- **Policy terms: those of the Swiss earthquake pool (SPE) statutes**, applied to every
+- Residuals are truncated at 3σ, with an exact truncated normal (clipping would pile the tail
+  onto the bound). 3σ is a convention; the untruncated case is in the sensitivity run.
+- Common random numbers: every source, event and branch has its own random stream, so a
+  sensitivity case keeps the baseline's random draws apart from the choice under test.
+- Policy terms are those of the Swiss earthquake pool (SPE) statutes, applied to every
   residential building as a stylised insurer. Covered value = structure + non-structural
   (EUR 778.8 bn); contents are not covered. Deductible per building = max(10 % of its value,
   CHF 50,000), with the CHF amount converted at the 2020 SNB average rate. ESRM20 rows lump
   several buildings, so each building is given the row's average value and loss ratio; the
   deductible then becomes a per-row fraction `max(10 %, CHF 50k × buildings / value)`.
-- **Ground-up and gross losses use the same loss-ratio draws**, so the difference between
-  them is the deductible alone.
-- **Cat XL "X xs Y" per occurrence on the gross event loss**, annual aggregate limit
-  (1 + reinstatements) × X, reinstatement premium pro rata capita, priced at pure premium
-  `P = E[recovery] / (1 + r · E[min(Σ recoveries, n·X)] / X)`. No risk load: any loading
-  factor would be an invented number. The layer (EUR 800 m xs 300 m, 1 reinstatement at
-  100 %) was chosen once from the baseline gross OEP (attach near 100 years, exhaust near
-  250 years) and is then held fixed, like a real contract. It is illustrative, not a real
-  treaty.
+- Ground-up and gross losses use the same loss-ratio draws, so the difference between them is
+  the deductible alone.
+- The cat XL is "X xs Y" per occurrence on the gross event loss, with an annual aggregate limit
+  of (1 + reinstatements) × X and reinstatement premium pro rata capita. It is priced at pure
+  premium `P = E[recovery] / (1 + r · E[min(Σ recoveries, n·X)] / X)`. There is no risk load,
+  because any loading factor would be an invented number. The layer (EUR 800 m xs 300 m,
+  1 reinstatement at 100 %) was chosen once from the baseline gross OEP (attach near 100 years,
+  exhaust near 250 years) and is then held fixed, like a real contract.
 
 ## Limitations
 
@@ -203,13 +203,14 @@ Files are pinned to release tags (or a commit, where no tag exists) and verified
   cross-correlation model (e.g. Loth & Baker 2013).
 - **Secondary uncertainty** is one draw per asset row per event, and its draws are not common
   across sensitivity cases with a different distance cut-off.
-- **Ground-motion model uncertainty is mixed, not separated.** The 15 Kotha et al. (2020) branches
-  are sampled per year into one EP curve, so the epistemic spread (how much the 250-year loss
-  depends on which branch is right) is not reported. Per-branch EP curves would show it but need
-  far more simulated years per branch to converge.
+- **Ground-motion model uncertainty is folded into one EP curve.** The 15 Kotha et al. (2020)
+  branches are sampled per year, so the epistemic spread (how much the 250-year loss depends on
+  which branch is right) is not reported. Per-branch EP curves would show it but need far more
+  simulated years per branch to converge.
 - **Different hazard model from ERM-CH23**, which is built on the Swiss national hazard model
-  (SUIhaz2015), not ESHM20 + Kotha et al. (2020). Part of any M5 gap will come from this.
-- **Stylised insurer, not the real market.** The SPE's per-building terms are applied to all
+  (SUIhaz2015), not ESHM20 + Kotha et al. (2020). Part of any gap in the M5 benchmark is
+  expected to come from this.
+- **A stylised insurer.** The SPE's per-building terms are applied to all
   Swiss residential buildings. In reality about 15 % of buildings are insured against
   earthquake ([SIF](https://www.sif.admin.ch/en/financing-building-damage-caused-by-earthquakes)),
   the SPE pays voluntarily rather than under an insurance contract
@@ -230,7 +231,7 @@ Files are pinned to release tags (or a commit, where no tag exists) and verified
 - **Historical check:** the region is the convex hull of the exposure clipped to ESHM20
   completeness zone SZ02; the catalogue is assumed complete up to its last year (2014); the
   mainshock flag `winGT_fs01` is read as the DBF-truncated name of the `winGT_fs017`
-  declustering variant. That reading is inferred, not documented.
+  declustering variant. I inferred this reading; it is not documented.
 
 ## Licence
 
