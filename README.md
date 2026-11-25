@@ -1,7 +1,5 @@
 # chquake: an open earthquake loss model for Switzerland
 
-> Work in progress. This is a portfolio project, not a production model.
-
 A small, reproducible earthquake catastrophe model for Swiss residential buildings:
 
 **hazard → site → exposure → vulnerability → financial terms → EP metrics**
